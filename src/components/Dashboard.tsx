@@ -191,17 +191,17 @@ const Dashboard: React.FC = () => {
   );
 };
 
-const SummaryCard = ({ title, amount, icon, color, format }: any) => (
-  <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm flex items-center gap-4">
-    <div className={`${color} p-3 rounded-xl text-white`}>
-      {icon}
-    </div>
-    <div>
-      <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-medium">{title}</p>
-      <p className="text-xl font-bold">{format(amount)}</p>
-    </div>
-  </div>
-);
+// const SummaryCard = ({ title, amount, icon, color, format }: any) => (
+//   <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm flex items-center gap-4">
+//     <div className={`${color} p-3 rounded-xl text-white`}>
+//       {icon}
+//     </div>
+//     <div>
+//       <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-medium">{title}</p>
+//       <p className="text-xl font-bold">{format(amount)}</p>
+//     </div>
+//   </div>
+// );
 
 const TransactionItem = ({ tx, accounts, format }: { tx: Transaction, accounts: Account[], format: (v: number) => string }) => {
   const account = accounts.find(a => a.id === tx.accountId);
