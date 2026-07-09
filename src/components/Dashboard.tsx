@@ -57,97 +57,112 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 p-4 pb-24 transition-colors duration-300">
-      <header className="max-w-4xl mx-auto mb-8 pt-4 flex justify-between items-center">
-        <div className="flex flex-col">
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">My Finances</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">Local-first privacy tracking</p>
-        </div>
-        <button 
-          onClick={() => setIsCatManagerOpen(true)}
-          className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all active:scale-90"
-          aria-label="Settings"
-        >
-          <Settings className="w-5 h-5" />
+    <div className="min-h-screen bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors duration-300 flex flex-col">
+      {/* TOP NAVIGATION BAR */}
+      <header className="flex justify-between items-center p-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-10">
+        <button className="p-2 -ml-2 text-slate-600 dark:text-slate-400">
+          <ArrowDownLeft className="w-6 h-6 rotate-90" />
         </button>
+        <h1 className="text-lg font-semibold">Transaction</h1>
+        <div className="flex gap-2">
+          <button className="p-2 text-slate-600 dark:text-slate-400">
+            <Wallet className="w-6 h-6" />
+          </button>
+          <button 
+            onClick={() => setIsCatManagerOpen(true)}
+            className="p-2 text-slate-600 dark:text-slate-400"
+          >
+            <Settings className="w-6 h-6" />
+          </button>
+        </div>
       </header>
 
-      <main className="max-w-4xl mx-auto space-y-8">
-        {/* Summary Cards - Optimized for Mobile (1 col) and Desktop (3 col) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <SummaryCard 
-            title="Net Worth" 
-            amount={summaries?.netWorth || 0} 
-            icon={<Wallet className="w-5 h-5" />} 
-            color="bg-indigo-600" 
-            format={formatCurrency} 
-          />
-          <SummaryCard 
-            title="Monthly Income" 
-            amount={summaries?.monthlyIncome || 0} 
-            icon={<ArrowUpRight className="w-5 h-5" />} 
-            color="bg-emerald-600" 
-            format={formatCurrency} 
-          />
-          <SummaryCard 
-            title="Monthly Expense" 
-            amount={summaries?.monthlyExpense || 0} 
-            icon={<ArrowDownLeft className="w-5 h-5" />} 
-            color="bg-rose-600" 
-            format={formatCurrency} 
-          />
+      {/* DATE SELECTOR */}
+      <div className="flex justify-between items-center p-4 text-slate-600 dark:text-slate-400 font-medium">
+        <button className="p-1">&lt;</button>
+        <span className="text-sm">Jul 2020</span>
+        <button className="p-1">&gt;</button>
+      </div>
+
+      {/* TAB MENU */}
+      <div className="flex justify-around border-b border-slate-100 dark:border-slate-800 text-sm font-medium text-slate-500 dark:text-slate-400">
+        {['Daily', 'Calendar', 'Weekly', 'Monthly', 'Summary'].map((tab) => (
+          <button 
+            key={tab} 
+            className={`py-3 px-2 border-b-2 transition-colors ${tab === 'Daily' ? 'border-orange-500 text-orange-500' : 'border-transparent hover:text-slate-800 dark:hover:text-slate-200'}`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      <main className="flex-1 overflow-y-auto pb-24">
+        {/* SUMMARY ROW */}
+        <div className="grid grid-cols-3 gap-2 p-4 text-center border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+          <div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Income</p>
+            <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{formatCurrency(summaries?.monthlyIncome || 0)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Expenses</p>
+            <p className="text-sm font-bold text-red-500 dark:text-red-400">{formatCurrency(summaries?.monthlyExpense || 0)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Total</p>
+            <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{formatCurrency((summaries?.monthlyIncome || 0) - (summaries?.monthlyExpense || 0))}</p>
+          </div>
         </div>
 
-        {/* Recent Transactions */}
-        <section className="space-y-4">
-          <div className="flex justify-between items-center px-1">
-            <h2 className="text-lg font-bold flex items-center gap-2">
-              Recent Transactions
-              <span className="text-xs font-normal bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full text-slate-500">
-                Last 10
-              </span>
-            </h2>
-            <button className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline decoration-2 underline-offset-4">
-              View All
-            </button>
-          </div>
-          
-          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-            {transactions && transactions.length > 0 ? (
-              <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                {transactions.map(tx => (
-                  <TransactionItem 
-                    key={tx.id} 
-                    tx={tx} 
-                    accounts={accounts || []} 
-                    format={formatCurrency} 
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="p-12 text-center space-y-3">
-                <div className="mx-auto w-12 h-12 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-400">
-                  <Wallet className="w-6 h-6" />
-                </div>
-                <p className="text-slate-500 dark:text-slate-400 font-medium">
-                  No transactions yet.
-                </p>
-                <p className="text-xs text-slate-400">
-                  Tap the + button to add your first entry!
-                </p>
-              </div>
-            )}
-          </div>
-        </section>
+        {/* TRANSACTIONS LIST */}
+        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+          {transactions && transactions.length > 0 ? (
+            transactions.map(tx => (
+              <TransactionItem 
+                key={tx.id} 
+                tx={tx} 
+                accounts={accounts || []} 
+                format={formatCurrency} 
+              />
+            ))
+          ) : (
+            <div className="p-12 text-center text-slate-400">No transactions found.</div>
+          )}
+        </div>
       </main>
 
-      {/* FAB - Enhanced for Mobile Thumb reach */}
+      {/* BOTTOM NAVIGATION BAR */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 py-3 flex justify-between items-center z-10">
+        <div className="flex flex-col items-center text-orange-500">
+          <Wallet className="w-6 h-6" />
+          <span className="text-[10px] mt-1">09/03</span>
+        </div>
+        <div className="flex flex-col items-center text-slate-400">
+          <ArrowUpRight className="w-6 h-6" />
+          <span className="text-[10px] mt-1">Stats</span>
+        </div>
+        <div className="flex flex-col items-center text-slate-400">
+          <Wallet className="w-6 h-6" />
+          <span className="text-[10px] mt-1">Accounts</span>
+        </div>
+        <div className="flex flex-col items-center text-slate-400">
+          <Settings className="w-6 h-6" />
+          <span className="text-[10px] mt-1">Settings</span>
+        </div>
+      </nav>
+
+      {/* FAB */}
       <button 
         onClick={() => setIsModalOpen(true)}
-        className="fixed bottom-6 right-6 w-16 h-16 bg-blue-600 text-white rounded-full shadow-xl shadow-blue-500/30 flex items-center justify-center hover:bg-blue-700 transition-all active:scale-90 z-40"
+        className="fixed bottom-20 right-6 w-14 h-14 bg-red-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-red-600 transition-all active:scale-90 z-40"
       >
-        <Plus className="w-7 h-7" />
+        <Plus className="w-8 h-8" />
       </button>
+
+      <CategoryManager 
+        isOpen={isCatManagerOpen} 
+        onClose={() => setIsCatManagerOpen(false)} 
+      />
+// ...existing code...
 // ...existing code...
 
       <CategoryManager 
@@ -193,21 +208,27 @@ const TransactionItem = ({ tx, accounts, format }: { tx: Transaction, accounts: 
   const isIncome = tx.type === 'income';
 
   return (
-    <div className="p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300">
-          {/* Placeholder for dynamic icon based on category */}
-          <Wallet className="w-5 h-5" />
+    <div className="p-4 flex flex-col gap-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <div className="text-sm font-bold text-slate-400 dark:text-slate-500 w-8">
+            {new Date(tx.date).getDate()}
+          </div>
+          <div className="flex flex-col">
+            <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{tx.category}</span>
+            <span className="text-[10px] text-slate-400 uppercase">{new Date(tx.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', year: 'numeric' })}</span>
+          </div>
         </div>
-        <div>
-          <p className="font-medium">{tx.category}</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {account?.name || 'Unknown Account'} • {new Date(tx.date).toLocaleDateString()}
+        <div className="text-right">
+          <p className={`text-sm font-bold ${isIncome ? 'text-blue-600 dark:text-blue-400' : 'text-red-500 dark:text-red-400'}`}>
+            {isIncome ? '+' : '-'}{format(tx.amount)}
           </p>
+          <p className="text-[10px] text-slate-400">$ 0.00</p>
         </div>
       </div>
-      <div className={`font-semibold ${isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-        {isIncome ? '+' : '-'}{format(tx.amount)}
+      <div className="pl-11">
+        <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">{tx.note || tx.category}</p>
+        <p className="text-xs text-slate-400">{account?.name || 'Unknown Account'}</p>
       </div>
     </div>
   );
