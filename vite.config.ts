@@ -4,7 +4,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  base: mode === 'production' ? '/money-manager/' : '/',
   plugins: [
     react(),
     VitePWA({
