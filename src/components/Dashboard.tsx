@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/schema';
 import type { Transaction, Account } from '@/types/finance';
-import { Plus, Wallet, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownLeft, Settings } from 'lucide-react';
+import { Plus, Wallet, ArrowUpRight, ArrowDownLeft, Settings } from 'lucide-react';
 import { fromCents } from '@/types/finance';
 import CategoryManager from './CategoryManager';
 

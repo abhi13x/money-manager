@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/schema';
 import type { Category } from '@/types/finance';
-import { Plus, Folder, ChevronRight, Trash2, Tag, X } from 'lucide-react';
+import { Plus, Folder, ChevronRight, Trash2, X } from 'lucide-react';
 
 interface CategoryManagerProps {
   isOpen: boolean;
