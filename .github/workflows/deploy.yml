@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+
+# Allow one concurrent deployment to avoid race conditions
+concurrency:
+  group: 'pages'
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -20,20 +26,20 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 24 # Using the stable active LTS release
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci # Enforces reproducible builds from package-lock.json
 
       - name: Build
         run: npm run build
 
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v5 # Upgraded to latest major version
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4 # Upgraded to latest major version
         with:
           path: 'dist'
 
