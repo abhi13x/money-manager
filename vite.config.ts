@@ -28,8 +28,8 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       manifest: {
-        name: 'Dime Web',
-        short_name: 'Dime',
+        name: 'Kanjoos Web',
+        short_name: 'Kanjoos',
         description: 'Local-First, privacy-focused Money Manager',
         theme_color: '#18181b',
         background_color: '#18181b',
