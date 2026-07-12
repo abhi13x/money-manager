@@ -1,5 +1,5 @@
 import { db } from '@/db/schema';
-import type { Transaction } from '@/types/finance';
+import { fromCents, type Transaction } from '@/types/finance';
 
 /**
  * Service layer for financial operations.
@@ -122,3 +122,10 @@ export const getMonthlyCategoryBreakdown = async (year: number, month: number) =
     total,
   }));
 };
+
+export const formatCurrency = (cents: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'INR',
+    }).format(fromCents(cents));
+  };

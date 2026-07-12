@@ -14,7 +14,7 @@ export interface Account {
   id: string; // UUID
   name: string;
   type: AccountType;
-  currency: string;
+  currency: string; // e.g., 'INR', 'USD', 'EUR'
   initialBalance: number; // In cents/paise
   currentBalance: number; // Tracked balance for performance
   createdAt: number; // Timestamp
@@ -48,7 +48,7 @@ export interface Budget {
 }
 
 /**
- * Utility helpers for currency precision
+ * Utility helpers for currency precision and localization
  */
 
 /**
@@ -66,11 +66,33 @@ export const fromCents = (cents: number): number => {
 };
 
 /**
- * Formats a cents value to a localized currency string
+ * Smart-maps ISO currency codes to standard native locales
  */
-export const formatCurrency = (cents: number, locale = 'en-US', currency = 'USD'): string => {
-  return new Intl.NumberFormat(locale, {
+const getFallbackLocale = (currency: string): string => {
+  const code = currency.toUpperCase();
+  const localeMap: Record<string, string> = {
+    INR: 'en-IN',
+    USD: 'en-US',
+    EUR: 'de-DE',
+    GBP: 'en-GB',
+    JPY: 'ja-JP',
+    CAD: 'en-CA',
+    AUD: 'en-AU',
+  };
+  return localeMap[code] || 'en-US';
+};
+
+/**
+ * Formats a cents/paise value dynamically based on currency code
+ * Ergonomically structured to prioritize currency over explicit locale injection.
+ */
+export const formatCurrency = (cents: number, currency = 'INR', locale?: string): string => {
+  const targetLocale = locale || getFallbackLocale(currency);
+  
+  return new Intl.NumberFormat(targetLocale, {
     style: 'currency',
-    currency: currency,
+    currency: currency.toUpperCase(),
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(fromCents(cents));
 };
