@@ -21,7 +21,7 @@ export const BottomNavDock: React.FC<BottomNavDockProps> = ({ currentView, onVie
       // 💡 Map the structural parent state here
       value={currentView} 
       // 💡 The 'newValue' parameter captures the 'value' prop of the clicked Action item
-      onChange={(event, newValue: NavView) => {
+      onChange={(_, newValue: NavView) => {
         onViewChange(newValue); 
       }}
       sx={{ borderTop: '1px solid', borderColor: 'divider' }}

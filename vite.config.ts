@@ -60,4 +60,21 @@ export default defineConfig(({ mode }) => ({
       usePolling: true,
     },
   },
+  build: {
+    // Pass optimization configuration to the Rolldown engine
+    rolldownOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            // Isolates heavy Material UI sets into a standalone chunk
+            if (id.includes('@mui')) {
+              return 'vendor-mui';
+            }
+            // Bundles remaining baseline dependencies (Dexie, React, Workbox, etc.)
+            return 'vendor-core';
+          }
+        },
+      },
+    },
+  },
 }))
