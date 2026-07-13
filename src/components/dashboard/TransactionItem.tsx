@@ -1,42 +1,146 @@
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Chip from '@mui/material/Chip';
 import type { Transaction, Account } from '@/types/finance';
 
-export const TransactionItem = (
-    { tx, accounts, format }: {
-        tx: Transaction, accounts: Account[], format: (v: number) => string
-    }
-) => {
-    // Direct UUID String evaluation match
-    const account = accounts.find(a => a.id === tx.accountId);
-    const isIncome = tx.type === 'income';
+export const TransactionItem = ({
+  tx,
+  accounts,
+  format
+}: {
+  tx: Transaction;
+  accounts: Account[];
+  format: (v: number) => string;
+}) => {
+  // Extract primary account and fallback destination account for transfer tracking
+  const account = accounts.find(a => a.id === tx.accountId);
+  const toAccount = tx.accountId ? accounts.find(a => a.id === tx.accountId) : null;
+  
+  const isIncome = tx.type === 'income';
+  const isExpense = tx.type === 'expense';
+  const isTransfer = tx.type === 'transfer';
 
-    return (
-        <div className="p-4 flex flex-col gap-1.5 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-            <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                    <div className="text-sm font-black text-slate-300 dark:text-slate-600 w-6 text-center">
-                        {new Date(tx.date).getDate().toString().padStart(2, '0')}
-                    </div>
-                    <div className="flex flex-col">
-                        <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{tx.category}</span>
-                        <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">
-                            {new Date(tx.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short' })}
-                        </span>
-                    </div>
-                </div>
-                <div className="text-right">
-                    <p className={`text-sm font-bold tracking-tight ${isIncome ? 'text-blue-600 dark:text-blue-400' : 'text-red-500 dark:text-red-400'}`}>
-                        {isIncome ? '+' : '-'}{format(tx.amount)}
-                    </p>
-                </div>
-            </div>
-            <div className="pl-9 flex justify-between items-center gap-4">
-                <p className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[220px]">
-                    {tx.note || tx.category}
-                </p>
-                <span className="text-[10px] px-2 py-0.5 font-medium rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200/40 dark:border-slate-700/40">
-                    {account?.name || 'Unknown Ledger'}
-                </span>
-            </div>
-        </div>
-    );
+  // Contextual color picker aligning seamlessly with TransactionPanel specifications
+  const getAmountColor = () => {
+    if (isExpense) return 'error.main';
+    if (isIncome) return 'primary.main';
+    return 'info.main'; // Indigo/Blue variant for asset transfers
+  };
+
+  const getAmountPrefix = () => {
+    if (isIncome) return '+';
+    if (isExpense) return '-';
+    return ''; // Transfers are ledger balances shifts, remaining unsigned
+  };
+
+  return (
+    <Box
+      sx={{
+        p: 2,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 0.75,
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        transition: 'background-color 0.2s ease',
+        '&:hover': {
+          bgcolor: 'action.hover',
+        },
+      }}
+    >
+      {/* UPPER BLOCK LAYER: Dates, Labels, and Currency */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          {/* Calendar Numeric Display Day Box */}
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: 900,
+              color: 'text.disabled',
+              width: 24,
+              textAlign: 'center',
+            }}
+          >
+            {new Date(tx.date).getDate().toString().padStart(2, '0')}
+          </Typography>
+
+          {/* Functional Categorization Info Column */}
+          <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+              {tx.category}
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{
+                fontSize: '0.65rem',
+                color: 'text.secondary',
+                fontWeight: 500,
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}
+            >
+              {new Date(tx.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short' })}
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Formatted Balanced Delta Value Output */}
+        <Box sx={{ textAlign: 'right' }}>
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: 700,
+              letterSpacing: '-0.025em',
+              color: getAmountColor(),
+            }}
+          >
+            {getAmountPrefix()}{format(tx.amount)}
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* LOWER BLOCK LAYER: Truncated Notes and Account Badges */}
+      <Box
+        sx={{
+          pl: 4.5, // Indents row perfectly beneath the category title (offsets the 24px date + gap)
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 2,
+        }}
+      >
+        {/* Dynamic Context Notes */}
+        <Typography
+          variant="caption"
+          noWrap
+          sx={{
+            color: 'text.secondary',
+            maxWidth: 220,
+          }}
+        >
+          {tx.note || tx.category}
+        </Typography>
+
+        {/* Structural Account Target Pill Badge */}
+        <Chip
+          label={
+            isTransfer && toAccount
+              ? `${account?.name || 'Unknown'} → ${toAccount.name}`
+              : account?.name || 'Unknown Ledger'
+          }
+          size="small"
+          variant="outlined"
+          sx={{
+            height: 20,
+            fontSize: '0.65rem',
+            fontWeight: 500,
+            color: 'text.secondary',
+            borderColor: 'divider',
+            bgcolor: 'background.default',
+            '& .MuiChip-label': { px: 1 },
+          }}
+        />
+      </Box>
+    </Box>
+  );
 };

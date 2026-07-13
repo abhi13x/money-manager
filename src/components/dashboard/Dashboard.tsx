@@ -1,22 +1,24 @@
 // src/components/Dashboard/Dashboard.tsx
 import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Plus } from 'lucide-react';
 
 import { db } from '@/db/schema';
 import { formatCurrency } from '@/services/financeService';
 
 import CategoryManager from '../CategoryManager';
-import { DateSelector } from './DateSelector';
+import { DateSelector } from './DateMonthSelector';
 import { Tabmenu } from './TabMenu';
-import { HandleSaveTransaction } from './TransactionPanel';
+import { HandleSaveTransaction } from '../TransactionPanel';
 import { TransactionItem } from './TransactionItem';
+import type { NavView } from './BottomNavDock';
 import { BottomNavDock } from './BottomNavDock';
 import { SummaryValueRow } from './MainContent';
+import Box from '@mui/material/Box';
+import Fab from '@mui/material/Fab';
+import AddIcon from '@mui/icons-material/Add';
 
 const Dashboard: React.FC = () => {
-  // Page Routing Layout States ('dashboard' or 'add-expense')
-  const [currentView, setCurrentView] = useState<'dashboard' | 'add-expense'>('dashboard');
+  const [currentView, setCurrentView] = useState<NavView | 'add-expense'>('home');
   const [isCatManagerOpen, setIsCatManagerOpen] = useState(false);
 
   // Live queries for data tracking
@@ -45,15 +47,14 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="h-screen max-w-md mx-auto bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 flex flex-col border-x border-slate-100 dark:border-slate-800 shadow-xl relative overflow-hidden select-none">
+      <h1 className="sr-only">Dashboard</h1>
       
-      {/* 🧭 IF VIEW IS 'add-expense', MOUNT IT AS THE WHOLE EXCLUSIVE SCREEN VIEW */}
       {currentView === 'add-expense' ? (
         <HandleSaveTransaction
-          onClose={() => setCurrentView('dashboard')}
+          onClose={() => setCurrentView('home')} 
           accounts={accounts || []}
         />
       ) : (
-        /* 📋 OTHERWISE, RENDER THE STANDARD DASHBOARD VIEW */
         <>
           {/* 1. TOP BAR */}
           <DateSelector />
@@ -63,40 +64,83 @@ const Dashboard: React.FC = () => {
 
           {/* 3. SCROLLABLE MAIN CONTENT AREA */}
           <main className="flex-1 overflow-y-auto relative bg-slate-50/20 dark:bg-slate-900/10">
-            {/* SUMMARY VALUE ROW */}
-            <SummaryValueRow 
-              income={summaries?.monthlyIncome || 0} 
-              expense={summaries?.monthlyExpense || 0} 
-            />        
+            
+            {/* 🏠 HOME/DASHBOARD VIEW */}
+            {currentView === 'home' && (
+              <>
+                <SummaryValueRow
+                  income={summaries?.monthlyIncome || 0}
+                  expense={summaries?.monthlyExpense || 0}
+                />
 
-            {/* TRANSACTIONS LEDGER LIST */}
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {transactions && transactions.length > 0 ? (
-                transactions.map(tx => (
-                  <TransactionItem
-                    key={tx.id}
-                    tx={tx}
-                    accounts={accounts || []}
-                    format={formatCurrency}
-                  />
-                ))
-              ) : (
-                <div className="p-12 text-center text-slate-400 text-sm">No transactions found.</div>
-              )}
-            </div>
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {transactions && transactions.length > 0 ? (
+                    transactions.map(tx => (
+                      <TransactionItem
+                        key={tx.id}
+                        tx={tx}
+                        accounts={accounts || []}
+                        format={formatCurrency}
+                      />
+                    ))
+                  ) : (
+                    <div className="p-12 text-center text-slate-400 text-sm">No transactions found.</div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* 📑 TRANSACTIONS HISTORY VIEW */}
+            {currentView === 'transactions' && (
+              <div className="p-8 text-center text-slate-500 dark:text-slate-400 text-sm">
+                Full Ledger History Component Goes Here
+              </div>
+            )}
+
+            {/* 📊 ANALYTICS STATS VIEW */}
+            {currentView === 'stats' && (
+              <div className="p-8 text-center text-slate-500 dark:text-slate-400 text-sm">
+                Charts and Insights Component Goes Here
+              </div>
+            )}
+
+            {/* 💳 ACCOUNTS MANAGEMENT VIEW */}
+            {currentView === 'accounts' && (
+              <div className="p-8 text-center text-slate-500 dark:text-slate-400 text-sm">
+                Wallet and Bank Accounts List Goes Here
+              </div>
+            )}
 
             {/* FLOATING ACTION BUTTON */}
-            <button
-              onClick={() => setCurrentView('add-expense')} // 👈 Opens transaction view as an absolute page frame swap
-              className="fixed w-14 h-14 bg-red-500 text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-red-600 transition-all active:scale-90 z-20"
-              style={{ position: 'absolute', bottom: '24px', right: '24px' }}
+            {/* Kept globally inside main so you can hit "+" from any main navigation tab */}
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: 24,
+                right: 24,
+                zIndex: 20,
+              }}
             >
-              <Plus className="w-8 h-8 flex-shrink-0" />
-            </button>
+              <Fab
+                color="error"
+                onClick={() => setCurrentView('add-expense')}
+                aria-label="add transaction"
+                sx={{
+                  width: 56,
+                  height: 56,
+                  boxShadow: 6,
+                }}
+              >
+                <AddIcon sx={{ fontSize: 32 }} />
+              </Fab>
+            </Box>
           </main>
 
           {/* 4. SOLID BOTTOM NAVIGATION DOCK */}
-          <BottomNavDock />
+          <BottomNavDock 
+            currentView={currentView} 
+            onViewChange={(newView) => setCurrentView(newView)} 
+          />
 
           {/* CATEGORY MANAGER MODAL */}
           <CategoryManager
