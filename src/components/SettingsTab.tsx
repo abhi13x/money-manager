@@ -154,7 +154,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ categories }) => {
                 </Box>
 
                 <Button type="submit" variant="contained" startIcon={<Plus size={16} />} sx={{ borderRadius: '12px', fontWeight: 700, py: 1.2 }}>
-                  Create Class
+                  Create Category
                 </Button>
               </Box>
 
