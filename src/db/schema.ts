@@ -1,3 +1,4 @@
+// src/db/schema.ts
 import Dexie, { type Table } from 'dexie';
 
 // Define Account Types
@@ -19,10 +20,8 @@ export interface Account {
   initialBalance: number; // stored in cents
   currentBalance: number; // stored in cents
   currency: string;
-  // Specific Investment/Scheme fields
   repeatInvestmentDate?: number; // Day of the month (1-31)
   interestRate?: number; // e.g. 7.1 for PPF
-  // Credit Card fields
   statementDate?: number; // Day of the month (1-31)
   dueDate?: number; // Day of the month (1-31)
 }
@@ -40,11 +39,10 @@ export interface Transaction {
   type: 'income' | 'expense' | 'transfer';
   accountId: string;
   toAccountId?: string; // only for transfers
-  categoryId?: string; // references category (or sub-category)
+  categoryId?: string; // references category
   date: number; // timestamp
   note?: string;
   description?: string;
-  // Recurring Profile fields
   isRecurring?: boolean;
   repeatInterval?: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 }
@@ -61,6 +59,40 @@ class KanjoosDatabase extends Dexie {
       categories: 'id, name, type, parentId',
       transactions: 'id, amount, type, accountId, toAccountId, categoryId, date, isRecurring'
     });
+  }
+
+  /**
+   * Seeds the database with a robust set of initial categories if empty.
+   * Idempotent check ensures it runs safely on every application reload.
+   */
+  async seedDefaultCategories(): Promise<void> {
+    const existingCount = await this.categories.count();
+    
+    // If categories already exist, don't write duplicates
+    if (existingCount > 0) return;
+
+    const defaultCategories: Category[] = [
+      // Core Income Categories
+      { id: 'cat-salary', name: 'Salary', type: 'income' },
+      { id: 'cat-investments', name: 'Investment Returns', type: 'income' },
+      { id: 'cat-freelance', name: 'Freelance & Side Hustles', type: 'income' },
+      { id: 'cat-income-other', name: 'Other Income', type: 'income' },
+
+      // Essential Expense Categories
+      { id: 'cat-food', name: 'Food & Dining', type: 'expense' },
+      { id: 'cat-groceries', name: 'Groceries', type: 'expense' },
+      { id: 'cat-rent', name: 'Rent & Housing', type: 'expense' },
+      { id: 'cat-utilities', name: 'Bills & Utilities', type: 'expense' },
+      { id: 'cat-transport', name: 'Fuel & Transport', type: 'expense' },
+      
+      // Lifestyle & Discretionary Expenses
+      { id: 'cat-shopping', name: 'Shopping', type: 'expense' },
+      { id: 'cat-entertainment', name: 'Entertainment & OTT', type: 'expense' },
+      { id: 'cat-medical', name: 'Medical & Healthcare', type: 'expense' },
+      { id: 'cat-expense-other', name: 'Miscellaneous', type: 'expense' }
+    ];
+
+    await this.categories.bulkAdd(defaultCategories);
   }
 }
 
