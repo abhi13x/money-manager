@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import Dashboard from './components/dashboard/Dashboard'
+import Dashboard from './components/Dashboard'
 import TransactionModal from './components/TransactionModal'
 
 function App() {

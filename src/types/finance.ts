@@ -1,3 +1,5 @@
+// types/finance.ts
+
 /**
  * Finance Domain Types
  * 
@@ -28,7 +30,7 @@ export interface Transaction {
   category: string;
   note: string;
   date: number; // Timestamp
-  targetAccountId?: string; // Optional UUID for transfers
+  toAccountId?: string; // FIX: Changed from targetAccountId to toAccountId
 }
 
 export interface Category {
@@ -84,7 +86,6 @@ const getFallbackLocale = (currency: string): string => {
 
 /**
  * Formats a cents/paise value dynamically based on currency code
- * Ergonomically structured to prioritize currency over explicit locale injection.
  */
 export const formatCurrency = (cents: number, currency = 'INR', locale?: string): string => {
   const targetLocale = locale || getFallbackLocale(currency);

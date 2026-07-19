@@ -29,7 +29,7 @@ export class GDriveSyncService {
   async requestAuth(): Promise<string | null> {
     return new Promise((resolve, reject) => {
       try {
-        const client = window.google.accounts.oauth2.initTokenClient({
+        const client = (window as any).google.accounts.oauth2.initTokenClient({
           client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
           scope: G_DRIVE_SCOPES,
           callback: (response: any) => {
@@ -56,12 +56,11 @@ export class GDriveSyncService {
    */
   async exportBackupToDrive(token: string): Promise<void> {
     try {
-      // 1. Serialize all tables
+      // 1. Serialize existing schema tables
       const data = {
         accounts: await db.accounts.toArray(),
         transactions: await db.transactions.toArray(),
         categories: await db.categories.toArray(),
-        budgets: await db.budgets.toArray(),
         exportedAt: new Date().toISOString(),
       };
       const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
@@ -98,17 +97,15 @@ export class GDriveSyncService {
 
       const data = await response.json();
 
-      // Rehydrate Dexie atomically
-      await db.transaction('rw', [db.accounts, db.transactions, db.categories, db.budgets], async () => {
+      // Rehydrate Dexie atomically using only valid schema tables
+      await db.transaction('rw', [db.accounts, db.transactions, db.categories], async () => {
         await db.accounts.clear();
         await db.transactions.clear();
         await db.categories.clear();
-        await db.budgets.clear();
 
-        await db.accounts.bulkAdd(data.accounts);
-        await db.transactions.bulkAdd(data.transactions);
-        await db.categories.bulkAdd(data.categories);
-        await db.budgets.bulkAdd(data.budgets);
+        if (data.accounts) await db.accounts.bulkAdd(data.accounts);
+        if (data.transactions) await db.transactions.bulkAdd(data.transactions);
+        if (data.categories) await db.categories.bulkAdd(data.categories);
       });
     } catch (error) {
       this.handleSyncError(error);

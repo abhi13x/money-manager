@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/schema';
-import { addTransaction } from '@/services/financeService';
-import { toCents } from '@/types/finance';
-import { X, Calendar, Tag, CreditCard, Type } from 'lucide-react';
+import { 
+  Dialog, DialogTitle, DialogContent, Box, IconButton, TextField, 
+  MenuItem, Button, ToggleButton, ToggleButtonGroup, 
+  InputAdornment, Typography, FormControlLabel, Checkbox 
+} from '@mui/material';
+import { X, Calendar, Tag, CreditCard, ArrowRightLeft, FileText } from 'lucide-react';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -14,174 +17,278 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose }) 
   const [type, setType] = useState<'expense' | 'income' | 'transfer'>('expense');
   const [amount, setAmount] = useState('');
   const [accountId, setAccountId] = useState('');
+  const [toAccountId, setToAccountId] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [note, setNote] = useState('');
+  const [description, setDescription] = useState('');
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [repeatInterval, setRepeatInterval] = useState<'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
 
-  // Live data for dropdowns
-  const accounts = useLiveQuery(() => db.accounts.toArray());
-  const categories = useLiveQuery(() => db.categories.toArray());
+  const accounts = useLiveQuery(() => db.accounts.toArray()) || [];
+  const categories = useLiveQuery(() => db.categories.toArray()) || [];
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isOpen) return;
-      if (e.key === 'Escape') onClose();
-      if (e.key === 'Enter' && e.target === document.activeElement && (document.activeElement as HTMLInputElement).tagName !== 'TEXTAREA') {
-        // Simple enter to submit logic can be added here if desired, 
-        // but usually handled by form onSubmit
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
+  const handleTypeChange = (
+    _event: React.MouseEvent<HTMLElement>,
+    newType: 'expense' | 'income' | 'transfer' | null
+  ) => {
+    if (newType !== null) {
+      setType(newType);
+      setCategoryId('');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!amount || !accountId || !categoryId) {
-      alert('Please fill in all required fields');
-      return;
-    }
+    if (!amount || !accountId) return;
+
+    const amountCents = Math.round(parseFloat(amount) * 100);
 
     try {
-      await addTransaction({
-        accountId,
-        amount: toCents(parseFloat(amount)),
-        type,
-        category: categoryId,
-        note,
-        date: new Date(date).getTime(),
+      await db.transaction('rw', [db.transactions, db.accounts], async () => {
+        // Create transactional logging profile
+        await db.transactions.add({
+          id: crypto.randomUUID(),
+          amount: amountCents,
+          type,
+          accountId,
+          toAccountId: type === 'transfer' ? toAccountId : undefined,
+          categoryId: type === 'transfer' ? undefined : categoryId,
+          date: new Date(date).getTime(),
+          note,
+          description,
+          isRecurring,
+          repeatInterval: isRecurring ? repeatInterval : 'none',
+        });
+
+        // Live Balance calculations
+        const srcAccount = await db.accounts.get(accountId);
+        if (srcAccount) {
+          const multiplier = type === 'income' ? 1 : -1;
+          await db.accounts.update(accountId, {
+            currentBalance: srcAccount.currentBalance + (amountCents * multiplier),
+          });
+        }
+
+        if (type === 'transfer' && toAccountId) {
+          const targetAccount = await db.accounts.get(toAccountId);
+          if (targetAccount) {
+            await db.accounts.update(toAccountId, {
+              currentBalance: targetAccount.currentBalance + amountCents,
+            });
+          }
+        }
       });
-      
-      // Reset and close
+
+      // Reset local state fields
       setAmount('');
+      setAccountId('');
+      setToAccountId('');
+      setCategoryId('');
       setNote('');
+      setDescription('');
+      setIsRecurring(false);
       onClose();
-    } catch (error) {
-      console.error('Failed to add transaction:', error);
-      alert('An error occurred while saving the transaction');
+    } catch (err) {
+      console.error(err);
+      alert('Local IndexedDB Transaction error occured');
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-        <div className="flex justify-between items-center p-6 border-b border-slate-100 dark:border-slate-700">
-          <h3 className="text-xl font-bold">Add Transaction</h3>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
+    <Dialog 
+      open={isOpen} 
+      onClose={onClose}
+      fullWidth
+      maxWidth="xs"
+      slotProps={{
+        paper: {
+          sx: { borderRadius: '24px', p: 1, bgcolor: 'background.paper', backgroundImage: 'none' }
+        }
+      }}
+    >
+      <DialogTitle sx={{ m: 0, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h6" sx={{ fontWeight: 800 }}>Add Entry</Typography>
+        <IconButton onClick={onClose} size="small" sx={{ color: 'text.secondary' }}>
+          <X size={20} />
+        </IconButton>
+      </DialogTitle>
+      
+      <DialogContent sx={{ borderTop: 'none', px: 3, py: 2 }}>
+        <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          
+          <ToggleButtonGroup
+            value={type}
+            exclusive
+            onChange={handleTypeChange}
+            fullWidth
+            size="small"
+            sx={{
+              bgcolor: 'action.hover', p: 0.5, borderRadius: '12px', border: 'none',
+              '& .MuiToggleButtonGroup-grouped': {
+                border: 0, borderRadius: '8px !important', textTransform: 'capitalize', fontWeight: 700,
+                '&.Mui-selected': { bgcolor: 'background.paper', boxShadow: 1, color: 'primary.main' }
+              }
+            }}
+          >
+            <ToggleButton value="expense">Expense</ToggleButton>
+            <ToggleButton value="income">Income</ToggleButton>
+            <ToggleButton value="transfer">Transfer</ToggleButton>
+          </ToggleButtonGroup>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {/* Type Toggle */}
-          <div className="grid grid-cols-3 gap-2 p-1 bg-slate-100 dark:bg-slate-900 rounded-xl">
-            {(['expense', 'income', 'transfer'] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setType(t)}
-                className={`py-2 px-3 rounded-lg text-sm font-medium capitalize transition-all ${
-                  type === t 
-                    ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' 
-                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                }`}
+          <TextField
+            label="Amount"
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            required
+            fullWidth
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Typography sx={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'text.secondary' }}>₹</Typography>
+                  </InputAdornment>
+                ),
+                sx: { fontSize: '1.25rem', fontWeight: 'bold', borderRadius: '12px' }
+              }
+            }}
+          />
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+            <TextField
+              select
+              label={type === 'transfer' ? 'From Account' : 'Account'}
+              value={accountId}
+              onChange={(e) => setAccountId(e.target.value)}
+              required
+              fullWidth
+              slotProps={{
+                input: {
+                  startAdornment: (<InputAdornment position="start"><CreditCard size={18} /></InputAdornment>),
+                  sx: { borderRadius: '12px' }
+                }
+              }}
+            >
+              {accounts.map((acc) => (
+                <MenuItem key={acc.id} value={acc.id}>{acc.name}</MenuItem>
+              ))}
+            </TextField>
+
+            {type === 'transfer' ? (
+              <TextField
+                select
+                label="To Account"
+                value={toAccountId}
+                onChange={(e) => setToAccountId(e.target.value)}
+                required
+                fullWidth
+                slotProps={{
+                  input: {
+                    startAdornment: (<InputAdornment position="start"><ArrowRightLeft size={18} /></InputAdornment>),
+                    sx: { borderRadius: '12px' }
+                  }
+                }}
               >
-                {t}
-              </button>
-            ))}
-          </div>
-
-          {/* Amount */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-500 flex items-center gap-2">
-              <Type className="w-4 h-4" /> Amount
-            </label>
-            <input
-              type="number"
-              inputMode="decimal"
-              placeholder="0.00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-2xl font-bold"
-              autoFocus
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            {/* Account Select */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-500 flex items-center gap-2">
-                <CreditCard className="w-4 h-4" /> Account
-              </label>
-              <select
-                value={accountId}
-                onChange={(e) => setAccountId(e.target.value)}
-                className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-              >
-                <option value="">Select Account</option>
-                {accounts?.map(acc => (
-                  <option key={acc.id} value={acc.id}>{acc.name}</option>
+                {accounts.filter((acc) => acc.id !== accountId).map((acc) => (
+                  <MenuItem key={acc.id} value={acc.id}>{acc.name}</MenuItem>
                 ))}
-              </select>
-            </div>
-
-            {/* Category Select */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-500 flex items-center gap-2">
-                <Tag className="w-4 h-4" /> Category
-              </label>
-              <select
+              </TextField>
+            ) : (
+              <TextField
+                select
+                label="Category"
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                required
+                fullWidth
+                slotProps={{
+                  input: {
+                    startAdornment: (<InputAdornment position="start"><Tag size={18} /></InputAdornment>),
+                    sx: { borderRadius: '12px' }
+                  }
+                }}
               >
-                <option value="">Select Category</option>
-                {categories?.filter(c => (type === 'income' ? c.type === 'income' : c.type === 'expense')).map(cat => (
-                  <option key={cat.id} value={cat.id}>
+                {categories.filter((c) => c.type === type).map((cat) => (
+                  <MenuItem key={cat.id} value={cat.id}>
                     {cat.parentId ? `↳ ${cat.name}` : cat.name}
-                  </option>
+                  </MenuItem>
                 ))}
-              </select>
-            </div>
-          </div>
+              </TextField>
+            )}
+          </Box>
 
-          {/* Date Picker */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-500 flex items-center gap-2">
-              <Calendar className="w-4 h-4" /> Date
-            </label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+          <TextField
+            type="date"
+            label="Date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            required
+            fullWidth
+            slotProps={{
+              inputLabel: { shrink: true },
+              input: {
+                startAdornment: (<InputAdornment position="start"><Calendar size={18} /></InputAdornment>),
+                sx: { borderRadius: '12px' }
+              }
+            }}
+          />
+
+          <TextField
+            label="Short Note"
+            placeholder="Quick reference details"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            fullWidth
+            slotProps={{ input: { sx: { borderRadius: '12px' } } }}
+          />
+
+          <TextField
+            label="Extended Description"
+            placeholder="Enter additional details..."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            fullWidth
+            multiline
+            rows={2}
+            slotProps={{
+              input: {
+                startAdornment: (<InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 1 }}><FileText size={18} /></InputAdornment>),
+                sx: { borderRadius: '12px' }
+              }
+            }}
+          />
+
+          {/* Repeat Schedule logic */}
+          <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px', p: 1.5 }}>
+            <FormControlLabel
+              control={<Checkbox checked={isRecurring} onChange={(e) => setIsRecurring(e.target.checked)} />}
+              label={<Typography variant="body2" sx={{ fontWeight: 700 }}>Enable Repeat Cycle</Typography>}
             />
-          </div>
+            {isRecurring && (
+              <TextField
+                select
+                size="small"
+                label="Repeat Interval"
+                value={repeatInterval}
+                onChange={(e) => setRepeatInterval(e.target.value as any)}
+                fullWidth
+                sx={{ mt: 1.5 }}
+              >
+                <MenuItem value="daily">Daily</MenuItem>
+                <MenuItem value="weekly">Weekly</MenuItem>
+                <MenuItem value="monthly">Monthly (SIP standard)</MenuItem>
+                <MenuItem value="yearly">Yearly</MenuItem>
+              </TextField>
+            )}
+          </Box>
 
-          {/* Note */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-500">Note</label>
-            <input
-              type="text"
-              placeholder="What was this for?"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg hover:bg-blue-700 active:scale-[0.98] transition-all mt-2"
-          >
+          <Button type="submit" variant="contained" size="large" fullWidth sx={{ py: 1.8, borderRadius: '16px', fontWeight: 'bold' }}>
             Save Transaction
-          </button>
-        </form>
-      </div>
-    </div>
+          </Button>
+        </Box>
+      </DialogContent>
+    </Dialog>
   );
 };
 

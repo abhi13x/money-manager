@@ -1,15 +1,16 @@
-import { db } from '@/db/schema';
-import { fromCents, type Transaction } from '@/types/finance';
+// src/services/financeService.ts
+import { db, type Transaction } from '@/db/schema';
+import { fromCents } from '@/types/finance';
 
 /**
  * Service layer for financial operations.
  * Handles atomic updates to balances and complex aggregations.
  */
 
-export const addTransaction = async (transactionData: Omit<Transaction, 'id'>) => {
+export const addTransaction = async (transactionData: Omit<Transaction, 'id'>): Promise<Transaction> => {
   return await db.transaction('rw', [db.transactions, db.accounts], async () => {
     const id = crypto.randomUUID();
-    const transaction = { ...transactionData, id };
+    const transaction = { ...transactionData, id } as Transaction;
     
     await db.transactions.add(transaction);
 
@@ -18,29 +19,29 @@ export const addTransaction = async (transactionData: Omit<Transaction, 'id'>) =
       const acc = await db.accounts.get(transactionData.accountId);
       if (acc) {
         await db.accounts.update(acc.id, { 
-          currentBalance: (acc.currentBalance || acc.initialBalance) + transactionData.amount 
+          currentBalance: (acc.currentBalance ?? acc.initialBalance) + transactionData.amount 
         });
       }
     } else if (transactionData.type === 'expense') {
       const acc = await db.accounts.get(transactionData.accountId);
       if (acc) {
         await db.accounts.update(acc.id, { 
-          currentBalance: (acc.currentBalance || acc.initialBalance) - transactionData.amount 
+          currentBalance: (acc.currentBalance ?? acc.initialBalance) - transactionData.amount 
         });
       }
-    } else if (transactionData.type === 'transfer' && transactionData.targetAccountId) {
+    } else if (transactionData.type === 'transfer' && transactionData.toAccountId) {
       // Source Account (Decrease)
       const sourceAcc = await db.accounts.get(transactionData.accountId);
       if (sourceAcc) {
         await db.accounts.update(sourceAcc.id, { 
-          currentBalance: (sourceAcc.currentBalance || sourceAcc.initialBalance) - transactionData.amount 
+          currentBalance: (sourceAcc.currentBalance ?? sourceAcc.initialBalance) - transactionData.amount 
         });
       }
       // Target Account (Increase)
-      const targetAcc = await db.accounts.get(transactionData.targetAccountId);
+      const targetAcc = await db.accounts.get(transactionData.toAccountId);
       if (targetAcc) {
         await db.accounts.update(targetAcc.id, { 
-          currentBalance: (targetAcc.currentBalance || targetAcc.initialBalance) + transactionData.amount 
+          currentBalance: (targetAcc.currentBalance ?? targetAcc.initialBalance) + transactionData.amount 
         });
       }
     }
@@ -49,7 +50,7 @@ export const addTransaction = async (transactionData: Omit<Transaction, 'id'>) =
   });
 };
 
-export const deleteTransaction = async (id: string) => {
+export const deleteTransaction = async (id: string): Promise<void> => {
   return await db.transaction('rw', [db.transactions, db.accounts], async () => {
     const transaction = await db.transactions.get(id);
     if (!transaction) throw new Error('Transaction not found');
@@ -57,16 +58,28 @@ export const deleteTransaction = async (id: string) => {
     // Revert balance changes before deleting
     if (transaction.type === 'income') {
       const acc = await db.accounts.get(transaction.accountId);
-      if (acc) await db.accounts.update(acc.id, { currentBalance: acc.currentBalance - transaction.amount });
+      if (acc) {
+        const currentVal = acc.currentBalance ?? acc.initialBalance;
+        await db.accounts.update(acc.id, { currentBalance: currentVal - transaction.amount });
+      }
     } else if (transaction.type === 'expense') {
       const acc = await db.accounts.get(transaction.accountId);
-      if (acc) await db.accounts.update(acc.id, { currentBalance: acc.currentBalance + transaction.amount });
-    } else if (transaction.type === 'transfer' && transaction.targetAccountId) {
+      if (acc) {
+        const currentVal = acc.currentBalance ?? acc.initialBalance;
+        await db.accounts.update(acc.id, { currentBalance: currentVal + transaction.amount });
+      }
+    } else if (transaction.type === 'transfer' && transaction.toAccountId) {
       const sourceAcc = await db.accounts.get(transaction.accountId);
-      if (sourceAcc) await db.accounts.update(sourceAcc.id, { currentBalance: sourceAcc.currentBalance + transaction.amount });
+      if (sourceAcc) {
+        const currentVal = sourceAcc.currentBalance ?? sourceAcc.initialBalance;
+        await db.accounts.update(sourceAcc.id, { currentBalance: currentVal + transaction.amount });
+      }
       
-      const targetAcc = await db.accounts.get(transaction.targetAccountId);
-      if (targetAcc) await db.accounts.update(targetAcc.id, { currentBalance: targetAcc.currentBalance - transaction.amount });
+      const targetAcc = await db.accounts.get(transaction.toAccountId);
+      if (targetAcc) {
+        const currentVal = targetAcc.currentBalance ?? targetAcc.initialBalance;
+        await db.accounts.update(targetAcc.id, { currentBalance: currentVal - transaction.amount });
+      }
     }
 
     await db.transactions.delete(id);
@@ -81,16 +94,17 @@ export const getAccountBalances = async () => {
     balance: account.currentBalance ?? account.initialBalance
   }));
 
+  // Aligned to exact database schema types to prevent ts(2367) non-overlapping comparison errors
   const assets = balances
-    .filter(b => ['checking', 'savings', 'cash', 'investment', 'retirement'].includes(b.account.type))
+    .filter(b => ['cash', 'savings', 'wallet', 'debit_card', 'mutual_fund', 'stock', 'fd_rd', 'scheme'].includes(b.account.type))
     .reduce((sum, b) => sum + b.balance, 0);
 
   const liabilities = balances
-    .filter(b => b.account.type === 'credit')
+    .filter(b => b.account.type === 'credit_card')
     .reduce((sum, b) => sum + b.balance, 0);
 
   const retirementAssets = balances
-    .filter(b => b.account.type === 'retirement')
+    .filter(b => b.account.type === 'scheme')
     .reduce((sum, b) => sum + b.balance, 0);
 
   return {
@@ -102,8 +116,9 @@ export const getAccountBalances = async () => {
 };
 
 export const getMonthlyCategoryBreakdown = async (year: number, month: number) => {
-  const startOfMonth = new Date(year, month, 1).getTime();
-  const endOfMonth = new Date(year, month + 1, 0).getTime();
+  // Sets dynamic boundaries down to the millisecond to catch all end-of-month logs
+  const startOfMonth = new Date(year, month, 1, 0, 0, 0, 0).getTime();
+  const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999).getTime();
 
   const transactions = await db.transactions
     .where('date')
@@ -114,18 +129,21 @@ export const getMonthlyCategoryBreakdown = async (year: number, month: number) =
   const breakdown: Record<string, number> = {};
 
   transactions.forEach(t => {
-    breakdown[t.category] = (breakdown[t.category] || 0) + t.amount;
+    // FIX: Swapped out missing '.category' property for schema-compliant '.categoryId'
+    const targetKey = t.categoryId || 'uncategorized';
+    breakdown[targetKey] = (breakdown[targetKey] || 0) + t.amount;
   });
 
-  return Object.entries(breakdown).map(([category, total]) => ({
-    category,
+  return Object.entries(breakdown).map(([categoryId, total]) => ({
+    categoryId,
     total,
   }));
 };
 
-export const formatCurrency = (cents: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'INR',
-    }).format(fromCents(cents));
-  };
+export const formatCurrency = (cents: number): string => {
+  // Native Indian Rupee localization supporting clean Lakh/Crore structural grouping formatting
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+  }).format(fromCents(cents));
+};
