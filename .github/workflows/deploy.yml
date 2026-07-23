@@ -35,6 +35,17 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+      
+      - name: Verify Secret Availability
+        run: |
+          if [ -z "$VITE_GOOGLE_CLIENT_ID" ]; then
+            echo "❌ ERROR: VITE_GOOGLE_CLIENT_ID is empty or undefined!"
+            exit 1
+          else
+            echo "✅ SUCCESS: VITE_GOOGLE_CLIENT_ID is set and passed to Vite."
+          fi
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
 
       - name: Build
         env:
