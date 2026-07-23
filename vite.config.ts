@@ -31,18 +31,18 @@ export default defineConfig(({ mode }) => ({
         name: 'Kanjoos Web',
         short_name: 'Kanjoos',
         description: 'Local-First, privacy-focused Money Manager',
-        theme_color: '#18181b',
-        background_color: '#18181b',
+        theme_color: '#4949a0',
+        background_color: '#48a86b',
         display: 'standalone',
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: 'money-manager\\src\\assets\\kanjoos_icon.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any maskable',
           },
           {
-            src: 'pwa-512x512.png',
+            src: 'money-manager\\src\\assets\\kanjoos_icon.png',
             sizes: '512x512',
             type: 'image/png',
           },
