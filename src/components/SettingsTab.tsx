@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { Box, Card, CardContent, Typography, 
+import { 
+  Box, Card, CardContent, Typography, 
   Grid, TextField, Button, MenuItem, List, 
-  ListItem, ListItemText, IconButton, Divider } from '@mui/material';
-import { Plus, Trash2, Globe, Cloud } from 'lucide-react'; // Swapped Chrome for Cloud
+  ListItem, ListItemText, IconButton, Divider, Alert 
+} from '@mui/material';
+import { Plus, Trash2, Globe, Cloud } from 'lucide-react';
 import { db, type Category } from '@/db/schema';
 import { useSettings } from '@/hooks/useSettings';
+import { GDriveSyncService } from '@/services/gdriveSync';
 
 interface SettingsTabProps {
   categories: Category[];
@@ -18,6 +21,41 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ categories }) => {
   const [newCatName, setNewCatName] = useState('');
   const [newCatType, setNewCatType] = useState<'income' | 'expense'>('expense');
   const [newParentId, setNewParentId] = useState<string>('');
+
+  // Google Drive Sync State
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  const syncService = GDriveSyncService.getInstance();
+
+  // Handle Actual Google Drive SSO & Sync Flow
+  const handleGoogleSync = async () => {
+    setIsSyncing(true);
+    setSyncError(null);
+    setSyncStatus(null);
+
+    try {
+      let token = accessToken;
+      if (!token) {
+        token = await syncService.requestAuth();
+        if (token) setAccessToken(token);
+      }
+
+      if (token) {
+        setSyncStatus('Syncing database with Google Drive...');
+        await syncService.exportBackupToDrive(token);
+        setSyncStatus('✓ Synced with Google Drive successfully!');
+      }
+    } catch (err: any) {
+      setSyncError(
+        err?.message || 'Failed to sync with Google Drive. Ensure VITE_GOOGLE_CLIENT_ID is set in .env'
+      );
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,12 +83,24 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ categories }) => {
     }
   };
 
-  const handleSocialMockLogin = (provider: string) => {
-    alert(`Initiating secure authentication token handshake with: ${provider}`);
+  const handleAppleMockLogin = () => {
+    alert('iCloud Keychain sync coming soon!');
   };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {/* Global Sync Status Banners */}
+      {syncError && (
+        <Alert severity="error" onClose={() => setSyncError(null)} sx={{ borderRadius: '12px' }}>
+          {syncError}
+        </Alert>
+      )}
+      {syncStatus && (
+        <Alert severity="success" onClose={() => setSyncStatus(null)} sx={{ borderRadius: '12px' }}>
+          {syncStatus}
+        </Alert>
+      )}
+
       <Grid container spacing={3}>
         {/* Profile Details & Configuration settings */}
         <Grid size={{ xs: 12, md: 6 }}>
@@ -85,17 +135,22 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ categories }) => {
                   <Button 
                     variant="outlined" 
                     color="inherit"
+                    disabled={isSyncing}
                     startIcon={<Globe size={18} />} 
-                    onClick={() => handleSocialMockLogin('Google Cloud Authentication')}
+                    onClick={handleGoogleSync}
                     sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '12px', justifyContent: 'flex-start', py: 1 }}
                   >
-                    Sync with Google Account
+                    {isSyncing 
+                      ? 'Connecting & Syncing...' 
+                      : accessToken 
+                      ? '✓ Synced with Google Account' 
+                      : 'Sync with Google Account'}
                   </Button>
                   <Button 
                     variant="outlined" 
                     color="inherit"
                     startIcon={<Cloud size={18} />} 
-                    onClick={() => handleSocialMockLogin('Apple iCloud Identity')}
+                    onClick={handleAppleMockLogin}
                     sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '12px', justifyContent: 'flex-start', py: 1 }}
                   >
                     Sync with iCloud Keychain
