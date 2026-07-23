@@ -17,33 +17,43 @@ permissions:
   id-token: write
 
 jobs:
-  build-and-deploy:
+  # JOB 1: Build the app and inject Vite secrets
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 24 # Using the stable active LTS release
+          node-version: 24
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci # Enforces reproducible builds from package-lock.json
+        run: npm ci
 
       - name: Build
         env:
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
         run: npm run build
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5 # Upgraded to latest major version
-
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v4 # Upgraded to latest major version
+        uses: actions/upload-pages-artifact@v3
         with:
-          path: 'dist'
+          path: './dist'
 
+  # JOB 2: Deploy compiled artifact to GitHub Pages
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
+        id: deployment
         uses: actions/deploy-pages@v4
