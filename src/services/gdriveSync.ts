@@ -45,8 +45,12 @@ export class GDriveSyncService {
   async requestAuth(): Promise<string | null> {
     return new Promise((resolve, reject) => {
       try {
+        const client_id = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+        if (!client_id) {
+          throw new Error('Google Client ID is not defined in environment variables.');
+        }
         const client = (window as any).google.accounts.oauth2.initTokenClient({
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+          client_id,
           scope: G_DRIVE_SCOPES,
           callback: (response: any) => {
             if (response.error) {

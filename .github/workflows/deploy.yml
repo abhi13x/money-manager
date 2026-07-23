@@ -33,9 +33,9 @@ jobs:
         run: npm ci # Enforces reproducible builds from package-lock.json
 
       - name: Build
-        run: npm run build
         env:
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+        run: npm run build
 
       - name: Setup Pages
         uses: actions/configure-pages@v5 # Upgraded to latest major version
